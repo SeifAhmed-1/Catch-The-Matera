@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Catch the Brand Items</title>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    background: #f2f4f7;
+    font-family: Arial, sans-serif;
+    
+    /* Stack logo + game vertically */
+    display: flex;
+    flex-direction: column;
+    align-items: center;       /* center horizontally */
+    justify-content: center;   /* center vertically */
+    height: 100vh;
+    gap: 20px;                 /* space between logo and game */
+}
+
+.logo {
+    display: flex;
+    justify-content: center;   /* center logo inside the div */
+    width: 100%;
+}
+
+.game-container {
+    width: 500px;
+    height: 700px;
+    background: white;
+    border: 3px solid #5a189a;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.game-wrapper {
+    display: flex;
+    align-items: flex-start;   /* align top edges */
+    gap: 20px;                 /* space between game and button */
+}
+
+#brandLogo {
+    width: 150px;
+    height: auto;
+    display: block;
+}
+
+#basket {
+    position: absolute;
+    bottom: 10px;
+    left: 220px;
+    width: 80px;       /* adjust based on your image */
+    height: 60px;      /* adjust based on your image */
+    cursor: pointer;
+}
+
+.falling {
+    position: absolute;
+    top: 0;
+    width: 100px;
+    height: 100px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#scoreBoard {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    background: rgba(255,255,255,0.8);
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+#congrats, #gameOver {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 40px;
+    font-weight: bold;
+    background: rgba(255,255,255,0.9);
+    padding: 20px 40px;
+    border-radius: 12px;
+    text-align: center;
+    z-index: 50;
+    pointer-events: none;
+    transition: transform 0.5s ease, opacity 1s ease;
+    opacity: 0;
+}
+
+#congrats.show, #gameOver.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+#restartBtn {
+    padding: 20px 30px;          /* bigger button */
+    font-size: 20px;
+    border: none;
+    border-radius: 8px;
+
+    background: #5a189a;
+    color: white;
+    cursor: pointer;
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: red;
+    pointer-events: none;
+    opacity: 1;
+    border-radius: 50%;
+}
+
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.popup-content {
+    background: white;
+    padding: 60px;
+    border-radius: 10px;
+    text-align: center;
+    color: #333;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease-in-out;
+}
+
+.popup-content h2 {
+    margin-top: 0;
+    color: #5a189a;
+    font-size: 2em;
+}
+
+.popup-content p {
+    font-size: 1.2em;
+}
+
+.popup-content button {
+    padding: 15px 30px;
+    font-size: 18px;
+    cursor: pointer;
+    background-color: #7b2cbf;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin-top: 25px;
+    transition: background-color 0.3s ease;
+}
+
+.popup-content button:hover {
+    background-color: #5a189a;
+}
+
+
+#gameWrapper {
+    /* transform-origin: top left; */
+    display: inline-block;
+}
+
+</style>
+</head>
+<body>
+
+<div class="popup-overlay" id="popup">
+    <div class="popup-content">
+        <img src="https://wahagco.com/Matera/matera.png" alt="Wahag Company Logo" style='width: 400px; padding-bottom: 40px'>
+        <h2>Welcome to Catch The Item!</h2>
+        <p>Get 30 points to win.</p>
+        <button id="startButton">Start</button>
+    </div>
+</div>
+
+<div id="gameWrapper">
+<div class="logo">
+    <img id="brandLogo" src="img/logo.png" alt="Brand Logo">
+</div>
+
+    <div class="game-wrapper">
+        <div class="game-container" id="gameArea">
+            <div id="scoreBoard">Score: 0</div>
+            <img id="basket" src="img/basket.png" alt="Basket">
+            <div id="congrats">🎉 Congratulations! 🎉</div>
+            <div id="gameOver">💀Game Over💀</div>
+        </div>
+        <button id="restartBtn">Restart</button>
+    </div>
+</div>
+    
+<script>
+const gameContainer = document.getElementById("gameArea");
+const basket = document.getElementById("basket");
+const scoreBoard = document.getElementById("scoreBoard");
+const restartBtn = document.getElementById("restartBtn");
+const congratsDiv = document.getElementById("congrats");
+const gameOverDiv = document.getElementById("gameOver");
+const startButton = document.getElementById('startButton');
+const popup = document.getElementById('popup');
+
+let score = 0;
+let basketX = 220;
+let gameOver = false;
+const brandItems = ["img/1.png","img/2.png","img/3.png"];
+const bombs = ["img/bomb.png"];
+let fallIntervals = [];
+
+// --------- Controls ---------
+document.addEventListener("keydown", e => {
+    if (gameOver) return;
+    if (e.key === "ArrowLeft") basketX = Math.max(0, basketX - 25);
+    if (e.key === "ArrowRight") basketX = Math.min(gameContainer.offsetWidth - basket.offsetWidth, basketX + 25);
+    basket.style.left = basketX + "px";
+});
+
+gameContainer.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (gameOver) return;
+    const rect = gameContainer.getBoundingClientRect();
+    const touchX = (e.touches[0].clientX - rect.left) / currentScale; // adjust for scale
+    basketX = Math.min(Math.max(touchX - basket.offsetWidth/2, 0), gameContainer.offsetWidth - basket.offsetWidth);
+    basket.style.left = basketX + "px";
+}, { passive: false });
+
+
+let isDragging = false;
+basket.addEventListener("mousedown", () => { if(!gameOver) isDragging = true; });
+document.addEventListener("mouseup", () => { isDragging = false; });
+document.addEventListener("mousemove", e => {
+    if (isDragging && !gameOver) {
+        const rect = gameContainer.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) / currentScale; // adjust for scale
+        basketX = Math.min(Math.max(mouseX - basket.offsetWidth/2, 0), gameContainer.offsetWidth - basket.offsetWidth);
+        basket.style.left = basketX + "px";
+    }
+});
+
+
+// --------- Falling items ---------
+function createFalling() {
+    if (gameOver) return;
+
+    const item = document.createElement("div");
+    item.classList.add("falling");
+
+    const isBomb = Math.random() < 0.2;
+    if (isBomb) {
+        item.style.backgroundImage = `url(${bombs[0]})`;
+        item.dataset.type = "bomb";
+    } else {
+        const randomImg = brandItems[Math.floor(Math.random() * brandItems.length)];
+        item.style.backgroundImage = `url(${randomImg})`;
+        item.dataset.type = "brand";
+    }
+
+    item.style.left = Math.floor(Math.random() * (gameContainer.offsetWidth - 60)) + "px";
+    item.style.top = "0px";
+
+    const speed = Math.random() * 3 + 2;
+    gameContainer.appendChild(item);
+
+    const interval = setInterval(() => {
+        if (gameOver) { item.remove(); clearInterval(interval); return; }
+
+        let itemTop = parseFloat(item.style.top);
+        itemTop += speed;
+        item.style.top = itemTop + "px";
+
+        const basketRect = basket.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+
+        // ---- Option 2 stricter hitbox ----
+        const shrinkX = 20; // tighter left/right
+        const shrinkY = 10; // deeper inside basket
+        const basketLeft = basketRect.left + shrinkX;
+        const basketRight = basketRect.right - shrinkX;
+        const basketTop = basketRect.top + shrinkY;
+
+        if (
+            itemRect.bottom >= basketTop &&
+            itemRect.left < basketRight &&
+            itemRect.right > basketLeft
+        ) {
+            if (item.dataset.type === "brand") score++;
+            else if (item.dataset.type === "bomb") score = Math.max(score - 1, 0);
+
+            scoreBoard.textContent = "Score: " + score;
+            item.remove();
+            clearInterval(interval);
+
+            if (score >= 30 && !gameOver) {
+                gameOver = true;
+                showCongrats();
+                launchConfetti();
+            }
+
+            if (score <= 0 && !gameOver) {
+                gameOver = true;
+                showGameOver();
+            }
+        } else if (itemTop > gameContainer.offsetHeight - 60) {
+            item.remove();
+            clearInterval(interval);
+        }
+    }, 50);
+
+    fallIntervals.push(interval);
+}
+
+let fallCreator;
+
+// --------- Restart ---------
+restartBtn.addEventListener("click", () => {
+    gameOver = false;
+    score = 0;
+    scoreBoard.textContent = "Score: " + score;
+    document.querySelectorAll(".falling, .confetti").forEach(e => e.remove());
+    congratsDiv.classList.remove("show");
+    gameOverDiv.classList.remove("show");
+    fallIntervals.forEach(interval => clearInterval(interval));
+    fallIntervals = [];
+    clearInterval(fallCreator);
+    popup.style.display = 'flex';
+});
+
+// --------- Animations ---------
+function showCongrats() {
+    congratsDiv.classList.add("show");
+    setTimeout(() => congratsDiv.classList.remove("show"), 3000);
+}
+
+function showGameOver() {
+    gameOverDiv.classList.add("show");
+}
+
+// --------- Confetti ---------
+function launchConfetti() {
+    const colors = ["#ff5252","#ffb74d","#4dd0e1","#81c784","#ffd54f"];
+    for (let i=0; i<100; i++) {
+        const confetti = document.createElement("div");
+        confetti.classList.add("confetti");
+        confetti.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+        confetti.style.left = Math.random()*gameContainer.offsetWidth + "px";
+        confetti.style.top = "-10px";
+        confetti.style.width = confetti.style.height = (5+Math.random()*10)+"px";
+        gameContainer.appendChild(confetti);
+
+        let speed = 2+Math.random()*4;
+        let angle = Math.random()*2*Math.PI;
+        const interval = setInterval(() => {
+            let top = parseFloat(confetti.style.top);
+            let left = parseFloat(confetti.style.left);
+            if (top > gameContainer.offsetHeight) { confetti.remove(); clearInterval(interval); }
+            else {
+                confetti.style.top = top + speed + "px";
+                confetti.style.left = left + Math.sin(angle)*2 + "px";
+                angle += 0.1;
+            }
+        }, 30);
+    }
+}
+
+startButton.addEventListener('click', () => {
+    popup.style.display = 'none';
+    fallCreator = setInterval(createFalling, 1000);
+});
+
+let currentScale = 1;
+
+function scaleGame() {
+    const wrapper = document.getElementById('gameWrapper');
+    const gameWidth = 500; // original game-container width
+    const gameHeight = 700 + 150 + 20; // game height + logo height + gap
+    currentScale = Math.min(window.innerWidth / (gameWidth + 50), window.innerHeight / (gameHeight + 50));
+    wrapper.style.transform = `scale(${currentScale})`;
+}
+
+// Call on load
+window.addEventListener('resize', scaleGame);
+scaleGame();
+
+
+</script>
+</body>
+</html>
